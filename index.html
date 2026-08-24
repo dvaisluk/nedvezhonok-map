@@ -5,449 +5,654 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Недвежонок — карта квартир</title>
 
-<!-- Карта: MapLibre GL + векторные тайлы OpenFreeMap. Без ключей и
-     регистрации. Векторная — значит браузер рисует её сам по файлу стиля,
-     поэтому цвета дорог, воды, парков и подписей можно задать своими.
-     Как поставить свой стиль — см. MAP_STYLE в скрипте ниже. -->
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 
 <style>
+/* ══════════════════════════════════════════════════════════════
+   Токены из макета Claude Design. Значения перенесены точь-в-точь
+   из раздела «Токены и состояния», не подобраны на глаз.
+   ══════════════════════════════════════════════════════════════ */
 :root{
-  --bg:#F1F3F2; --card:#FFFFFF; --ink:#16211C; --muted:#6B7A72;
-  --line:#E6EAE8; --line-2:#F0F3F1;
-  --green:#3F8F27; --green-soft:#E8F4E2;
-  --amber:#F0A020; --amber-ink:#1F1503;
-  --shadow:0 2px 6px rgba(18,32,25,.06), 0 12px 28px rgba(18,32,25,.10);
-  --shadow-sm:0 1px 3px rgba(18,32,25,.10);
-  --sheet-h:210px;
+  --bg:#F4F6F3; --surface:#FFFFFF; --surface-raised:#FFFFFF; --surface-sunken:#F4F6F3;
+  --text:#12160F; --text-2:#333B32; --muted:#6B7269; --muted-2:#8B938A;
+  --line:#E1E6DE;
+  --accent:#1F9E5A; --accent-pressed:#177F48; --accent-soft:#EAF7EF;
+  --on-accent:#FFFFFF; --accent-quiet:#5B7A67;
+  --badge:#FFC24A; --on-badge:#3A2A00;
+  --badge-soft:#FFF3D6; --badge-text:#8A6200; --badge-text-2:#A8873A;
+  --skeleton-a:#FFFFFF; --skeleton-b:#F0F2EE;
+  --ph-a:#DFE4DC; --ph-b:#EDF0EA;
+  --grid:#E2E7DF; --grid-bg:#EFF2ED;
+  --sh-card:0 8px 26px rgba(18,22,15,.14);
+  --sh-marker:0 5px 16px rgba(18,22,15,.22);
+  --sh-sheet:0 -12px 40px rgba(18,22,15,.18);
+  --sh-float:0 6px 20px rgba(18,22,15,.12);
+  --sh-chip:0 3px 10px rgba(18,22,15,.10);
+  --sh-accent:0 8px 22px rgba(31,158,90,.28);
+  --card-border:0px;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0E1412; --card:#18201C; --ink:#E9EFEB; --muted:#93A29A;
-    --line:#26302B; --line-2:#1F2723;
-    --green:#6FCB49; --green-soft:#1D2E17;
-    --amber:#F0A020; --amber-ink:#1F1503;
-    --shadow:0 2px 6px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.55);
-    --shadow-sm:0 1px 3px rgba(0,0,0,.5);
+    --bg:#111512; --surface:#17211B; --surface-raised:#1C231E; --surface-sunken:#1E2721;
+    --text:#F2F5F1; --text-2:#C7D0C8; --muted:#8E9A92; --muted-2:#7E8A82;
+    --line:#2A342D;
+    --accent:#35D183; --accent-pressed:#28B76E; --accent-soft:#14281D;
+    --on-accent:#07200F; --accent-quiet:#7FB99A;
+    --badge:#F0B93F; --on-badge:#241800;
+    --badge-soft:#3A2F12; --badge-text:#F0B93F; --badge-text-2:#C09A45;
+    --skeleton-a:#1C231E; --skeleton-b:#232D26;
+    --ph-a:#232D26; --ph-b:#1C231E;
+    --grid:#1E2721; --grid-bg:#141A16;
+    --sh-card:0 8px 26px rgba(0,0,0,.5);
+    --sh-marker:0 5px 16px rgba(0,0,0,.5);
+    --sh-sheet:0 -12px 40px rgba(0,0,0,.5);
+    --sh-float:0 6px 20px rgba(0,0,0,.5);
+    --sh-chip:0 3px 10px rgba(0,0,0,.5);
+    --sh-accent:0 8px 22px rgba(0,0,0,.5);
+    --card-border:1px;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0E1412; --card:#18201C; --ink:#E9EFEB; --muted:#93A29A;
-  --line:#26302B; --line-2:#1F2723;
-  --green:#6FCB49; --green-soft:#1D2E17;
-  --shadow:0 2px 6px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.55);
-  --shadow-sm:0 1px 3px rgba(0,0,0,.5);
+  --bg:#111512; --surface:#17211B; --surface-raised:#1C231E; --surface-sunken:#1E2721;
+  --text:#F2F5F1; --text-2:#C7D0C8; --muted:#8E9A92; --muted-2:#7E8A82;
+  --line:#2A342D;
+  --accent:#35D183; --accent-pressed:#28B76E; --accent-soft:#14281D;
+  --on-accent:#07200F; --accent-quiet:#7FB99A;
+  --badge:#F0B93F; --on-badge:#241800;
+  --badge-soft:#3A2F12; --badge-text:#F0B93F; --badge-text-2:#C09A45;
+  --skeleton-a:#1C231E; --skeleton-b:#232D26;
+  --ph-a:#232D26; --ph-b:#1C231E;
+  --grid:#1E2721; --grid-bg:#141A16;
+  --sh-card:0 8px 26px rgba(0,0,0,.5);
+  --sh-marker:0 5px 16px rgba(0,0,0,.5);
+  --sh-sheet:0 -12px 40px rgba(0,0,0,.5);
+  --sh-float:0 6px 20px rgba(0,0,0,.5);
+  --sh-chip:0 3px 10px rgba(0,0,0,.5);
+  --sh-accent:0 8px 22px rgba(0,0,0,.5);
+  --card-border:1px;
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{margin:0; background:var(--bg); color:var(--ink);
-     font-family:"Golos Text",system-ui,-apple-system,sans-serif; font-size:15px;
-     overflow:hidden; -webkit-font-smoothing:antialiased}
+body{margin:0; background:var(--bg); color:var(--text); overflow:hidden;
+     font-family:"Golos Text",system-ui,-apple-system,sans-serif;
+     -webkit-font-smoothing:antialiased}
+@keyframes shimmer{0%{background-position:-320px 0}100%{background-position:320px 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sk{background:linear-gradient(90deg,var(--skeleton-a) 25%,var(--skeleton-b) 37%,var(--skeleton-a) 63%);
+    background-size:320px 100%; animation:shimmer 1.4s linear infinite}
+.ph{background:repeating-linear-gradient(135deg,var(--ph-a) 0 6px,var(--ph-b) 6px 12px)}
 
 #map{position:fixed; inset:0; z-index:1; background:var(--bg)}
-.maplibregl-map{font-family:inherit; background:var(--bg)}
-.maplibregl-ctrl-attrib{font-size:9px; opacity:.7}
+.maplibregl-ctrl-attrib{font:400 9px "Golos Text"; opacity:.75}
 .maplibregl-ctrl-attrib a{color:var(--muted)}
-.maplibregl-ctrl-group{border-radius:11px !important; overflow:hidden;
-                       box-shadow:var(--shadow-sm) !important}
 
-/* ── Верхняя панель: поиск + фильтры ── */
-.top{position:fixed; z-index:20; top:0; left:0; right:0; padding:12px 12px 0;
-     display:flex; flex-direction:column; gap:9px; pointer-events:none}
-.search{pointer-events:auto; display:flex; align-items:center; gap:9px;
-        background:var(--card); border:1px solid var(--line); border-radius:14px;
-        padding:11px 14px; box-shadow:var(--shadow)}
-.search svg{flex:none; opacity:.5}
-.search input{border:0; outline:0; background:none; color:var(--ink);
-              font:inherit; font-size:15px; width:100%}
-.search input::placeholder{color:var(--muted)}
-.search button{border:0; background:none; color:var(--muted); font-size:17px;
-               cursor:pointer; padding:0 2px; display:none}
-.search.has button{display:block}
+/* сетка вместо карты — для пустого экрана и загрузки */
+.grid-bg{position:fixed; inset:0; z-index:1; background:var(--grid-bg); display:none}
+.grid-bg::after{content:""; position:absolute; inset:0; opacity:.5;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:46px 46px}
+body.no-map .grid-bg{display:block}
+/* Прячем только полотно карты, а не весь контейнер: метки лежат ВНУТРИ
+   него, и вместе с контейнером исчезли бы и они. */
+body.no-map .maplibregl-canvas,
+body.no-map .maplibregl-ctrl-attrib{visibility:hidden}
 
-.chips{pointer-events:auto; display:flex; gap:7px; overflow-x:auto;
-       padding-bottom:2px; scrollbar-width:none}
+/* ── Верх: поиск и чипсы ── */
+.top{position:fixed; z-index:20; left:0; right:0; top:0;
+     padding:calc(14px + env(safe-area-inset-top)) 16px 0;
+     display:flex; flex-direction:column; gap:10px; pointer-events:none}
+.search{pointer-events:auto; height:48px; border-radius:16px; background:var(--surface);
+        box-shadow:var(--sh-float); display:flex; align-items:center; gap:10px; padding:0 16px;
+        border:var(--card-border) solid var(--line)}
+.search .ico{width:15px; height:15px; border:2px solid var(--muted-2); border-radius:50%; flex:none}
+.search input{flex:1; min-width:0; border:0; outline:0; background:none; color:var(--text);
+              font:400 15px "Golos Text"}
+.search input::placeholder{color:var(--muted-2)}
+.search.has input{font-weight:500}
+.search .clr{display:none; width:20px; height:20px; border:0; border-radius:50%; flex:none;
+             background:var(--surface-sunken); color:var(--muted); cursor:pointer;
+             font:600 11px "Golos Text"; line-height:20px; padding:0}
+.search.has .clr{display:block}
+
+.chips{pointer-events:auto; display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;
+       padding-bottom:2px}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex:none; font:inherit; font-size:13.5px; font-weight:500; cursor:pointer;
-      padding:8px 14px; border-radius:999px; border:1px solid var(--line);
-      background:var(--card); color:var(--ink); box-shadow:var(--shadow-sm)}
-.chip[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:var(--bg)}
+.chip{flex:none; height:36px; padding:0 16px; border-radius:18px; border:0; cursor:pointer;
+      background:var(--surface); color:var(--text-2); font:500 14px/36px "Golos Text";
+      box-shadow:var(--sh-chip)}
+.chip[aria-pressed="true"]{background:var(--text); color:var(--bg); font-weight:600; box-shadow:none}
 
-/* ── Метка на карте: фото + балл ── */
-.mk{position:relative; width:46px; height:46px}
-.mk .ph{width:46px; height:46px; border-radius:14px; overflow:hidden;
-        border:2.5px solid var(--card); background:var(--line);
-        box-shadow:var(--shadow-sm); display:block}
-.mk .ph img{width:100%; height:100%; object-fit:cover; display:block}
-.mk .ph.no{display:grid; place-items:center; font-size:11px; font-weight:700;
-           color:var(--muted); background:var(--line-2)}
-.mk .sc{position:absolute; top:-6px; right:-6px; background:var(--amber);
-        color:var(--amber-ink); font-size:10.5px; font-weight:700; line-height:1;
-        padding:3px 5px; border-radius:7px; border:2px solid var(--card)}
-.mk .tip{position:absolute; top:50px; left:50%; transform:translateX(-50%);
-         background:var(--card); border:1px solid var(--line); border-radius:9px;
-         padding:3px 8px; font-size:12px; font-weight:600; white-space:nowrap;
-         box-shadow:var(--shadow-sm); font-variant-numeric:tabular-nums}
-.mk.on{z-index:9999}
-.mk.on .ph{border-color:var(--green); transform:scale(1.1)}
+/* ── Метка ── */
+.mk{position:relative; width:46px; height:46px; cursor:pointer}
+.mk .box{width:46px; height:46px; border-radius:15px; background:var(--surface); padding:3px;
+         box-shadow:var(--sh-marker)}
+.mk .box>*{width:100%; height:100%; border-radius:12px; display:block; object-fit:cover;
+           background:var(--ph-b)}
+.mk .no{display:flex; align-items:center; justify-content:center;
+        font:500 8px "JetBrains Mono"; color:var(--muted-2)}
+.mk .sc{position:absolute; top:-7px; right:-9px; border-radius:8px; padding:4px 6px;
+        font:700 10px/1 "Golos Text"; border:2px solid var(--surface)}
+.mk .tail{width:9px; height:9px; background:var(--surface); position:absolute; left:50%;
+          bottom:-3px; transform:translateX(-50%) rotate(45deg);
+          box-shadow:2px 2px 5px rgba(18,22,15,.14)}
+.mk.on{width:58px; height:58px; z-index:9}
+.mk.on .box{width:58px; height:58px; border-radius:19px; background:var(--accent);
+            box-shadow:0 10px 24px rgba(31,158,90,.34)}
+.mk.on .box>*{border-radius:16px; border:2px solid var(--surface)}
+.mk.on .sc{top:-8px; right:-10px; border-radius:9px; padding:4px 7px; font-size:11px}
+.mk.on .tail{width:11px; height:11px; background:var(--accent); bottom:-4px; box-shadow:none}
+.mk .tip{position:absolute; left:50%; top:66px; transform:translateX(-50%); white-space:nowrap;
+         background:var(--accent); color:var(--on-accent); font:700 12px/1 "Golos Text";
+         padding:6px 9px; border-radius:9px; box-shadow:0 6px 16px rgba(31,158,90,.3)}
 
-/* ── Нижняя карточка ── */
-.sheet{position:fixed; z-index:30; left:0; right:0; bottom:0;
-       padding:0 12px calc(12px + env(safe-area-inset-bottom));
-       transform:translateY(115%); transition:transform .26s cubic-bezier(.32,.72,0,1)}
-.sheet.open{transform:none}
-.sheet-in{background:var(--card); border:1px solid var(--line); border-radius:20px;
-          box-shadow:var(--shadow); overflow:hidden; max-height:82vh; overflow-y:auto}
-.hero{position:relative; height:186px; background:var(--line-2)}
-.hero img{width:100%; height:100%; object-fit:cover; display:block}
-.hero .none{display:grid; place-items:center; height:100%; color:var(--muted); font-size:13px}
-.hero .x{position:absolute; top:10px; right:10px; width:32px; height:32px; border-radius:50%;
-         border:0; background:rgba(255,255,255,.92); color:#16211C; font-size:15px;
-         cursor:pointer; box-shadow:var(--shadow-sm)}
-.hero .badge{position:absolute; top:10px; left:10px; background:var(--amber);
-             color:var(--amber-ink); font-size:12px; font-weight:700;
-             padding:5px 9px; border-radius:9px}
-.hero .dots{position:absolute; bottom:8px; left:0; right:0; display:flex;
-            justify-content:center; gap:5px}
-.hero .dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.55)}
-.hero .dots i.on{background:#fff; width:14px; border-radius:3px}
+/* ── Низ: счётчик и лента ── */
+.bottom{position:fixed; z-index:15; left:0; right:0; bottom:0;
+        padding-bottom:calc(18px + env(safe-area-inset-bottom));
+        display:flex; flex-direction:column; gap:10px; pointer-events:none;
+        transition:transform .26s cubic-bezier(.32,.72,0,1)}
+.bottom.hide{transform:translateY(130%)}
+.counter{margin:0 16px; align-self:flex-start; pointer-events:auto;
+         display:inline-flex; align-items:center; gap:7px; height:30px; padding:0 12px;
+         border-radius:15px; background:var(--surface); box-shadow:var(--sh-float);
+         font:500 12px "Golos Text"; color:var(--text-2)}
+.counter b{font-weight:700}
+.counter i{font-style:normal; color:var(--muted)}
 
-.body{padding:14px 15px 16px}
-.price{font-size:27px; font-weight:700; letter-spacing:-.02em; line-height:1.1;
-       font-variant-numeric:tabular-nums}
-.addr{color:var(--muted); font-size:13.5px; margin-top:3px; display:flex; gap:5px}
-.specs{display:flex; gap:8px; margin:13px 0; flex-wrap:wrap}
-.spec{background:var(--line-2); border-radius:11px; padding:8px 11px; flex:1; min-width:78px}
-.spec b{display:block; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums}
-.spec span{color:var(--muted); font-size:11px}
-.drop{background:var(--green-soft); color:var(--green); border-radius:11px;
-      padding:9px 12px; font-size:13.5px; font-weight:600; margin-bottom:12px;
-      font-variant-numeric:tabular-nums}
-.acts{display:flex; gap:9px}
-.btn{flex:1; display:block; text-align:center; text-decoration:none; font:inherit;
-     font-size:15px; font-weight:600; padding:14px; border-radius:14px;
-     border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer}
-.btn.go{background:var(--green); border-color:var(--green); color:#fff}
-:root[data-theme="dark"] .btn.go{color:#0E1412}
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn.go{color:#0E1412} }
-
-/* ── Список карточек внизу ── */
-.strip{position:fixed; z-index:15; left:0; right:0;
-       bottom:calc(10px + env(safe-area-inset-bottom));
-       display:flex; gap:10px; overflow-x:auto; padding:4px 12px 6px;
-       scroll-snap-type:x mandatory; scrollbar-width:none;
-       transition:transform .26s cubic-bezier(.32,.72,0,1)}
+.strip{display:flex; gap:12px; padding:0 16px; overflow-x:auto; scrollbar-width:none;
+       scroll-snap-type:x mandatory; pointer-events:auto}
 .strip::-webkit-scrollbar{display:none}
-.strip.hide{transform:translateY(150%)}
-.mini{scroll-snap-align:center; flex:0 0 258px; display:flex; gap:10px; text-align:left;
-      background:var(--card); border:1px solid var(--line); border-radius:16px;
-      padding:9px; box-shadow:var(--shadow); font:inherit; color:inherit; cursor:pointer}
-.mini .th{width:62px; height:62px; border-radius:12px; object-fit:cover; flex:none;
-          background:var(--line-2)}
-.mini .th.no{display:grid; place-items:center; color:var(--muted); font-size:10px}
-.mini .info{min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px}
-.mini .p{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
-.mini .m{color:var(--muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis;
-         white-space:nowrap}
-.mini .r{display:inline-flex; align-items:center; gap:4px; font-size:11.5px;
-         font-weight:700; color:var(--amber)}
-.mini.on{border-color:var(--green); box-shadow:0 0 0 2px var(--green-soft), var(--shadow)}
+.card{scroll-snap-align:center; flex:none; width:300px; height:104px; border-radius:22px;
+      background:var(--surface); box-shadow:var(--sh-card); padding:12px; display:flex; gap:12px;
+      border:var(--card-border) solid var(--line); cursor:pointer; text-align:left;
+      font:inherit; color:inherit}
+.card.on{border:1.5px solid var(--accent)}
+.card .pic{width:80px; height:80px; border-radius:16px; flex:none; position:relative;
+           overflow:hidden; background:var(--ph-b)}
+.card .pic img{width:100%; height:100%; object-fit:cover; display:block}
+.card .pic .n{position:absolute; left:6px; bottom:6px; background:rgba(18,22,15,.72); color:#fff;
+              font:500 10px "Golos Text"; padding:2px 6px; border-radius:7px}
+.card .pic .none{width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+                 font:500 9px "JetBrains Mono"; color:var(--muted-2)}
+.card .info{flex:1; min-width:0; display:flex; flex-direction:column;
+            justify-content:space-between; padding:2px 0}
+.card .row{display:flex; align-items:baseline; justify-content:space-between; gap:8px}
+.card .price{font:700 19px/1 "Golos Text"; color:var(--text)}
+.card .was{font:500 12px/1 "Golos Text"; color:var(--muted-2); text-decoration:line-through}
+.card .meta{font:500 13px/1.25 "Golos Text"; color:var(--text-2);
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.card .sub{font:400 12px/1.25 "Golos Text"; color:var(--muted);
+           overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pill{background:var(--badge-soft); color:var(--badge-text); font:700 10px/1 "Golos Text";
+      padding:4px 6px; border-radius:7px; flex:none}
 
-.counter{position:fixed; z-index:14; right:12px; top:118px; background:var(--card);
-         border:1px solid var(--line); border-radius:11px; padding:7px 11px;
-         font-size:12.5px; font-weight:600; box-shadow:var(--shadow-sm)}
-.counter b{font-variant-numeric:tabular-nums}
-.updated{position:fixed; z-index:14; right:12px; top:154px; font-size:11px;
-         color:var(--muted); background:var(--card); border:1px solid var(--line);
-         border-radius:9px; padding:4px 9px; box-shadow:var(--shadow-sm)}
-.updated:empty{display:none}
-.empty{position:fixed; inset:0; display:none; place-items:center; z-index:12;
-       pointer-events:none}
-.empty div{background:var(--card); border:1px solid var(--line); border-radius:14px;
-           padding:14px 18px; box-shadow:var(--shadow); color:var(--muted); font-size:14px}
-@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+.dots{display:flex; gap:5px; justify-content:center}
+.dots i{width:4px; height:4px; border-radius:2px; background:var(--line); transition:.2s}
+.dots i.on{width:16px; background:var(--text)}
+
+/* ── Карточка квартиры ── */
+.sheet{position:fixed; z-index:30; left:0; right:0; bottom:0;
+       height:min(612px, 86vh); background:var(--surface);
+       border-radius:28px 28px 0 0; box-shadow:var(--sh-sheet);
+       padding:10px 16px 0; display:flex; flex-direction:column;
+       transform:translateY(101%); transition:transform .28s cubic-bezier(.32,.72,0,1);
+       border-top:var(--card-border) solid var(--line); overflow-y:auto}
+.sheet.open{transform:none}
+.grab{width:38px; height:4px; border-radius:2px; background:var(--line); margin:0 auto 12px; flex:none}
+.hero{height:216px; border-radius:22px; position:relative; flex:none; overflow:hidden;
+      background:var(--ph-b)}
+.hero img{width:100%; height:100%; object-fit:cover; display:block}
+.hero .none{width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+            font:500 12px "JetBrains Mono"; color:var(--muted-2)}
+.hero .cnt{position:absolute; top:10px; right:10px; background:rgba(18,22,15,.7); color:#fff;
+           font:500 11px "Golos Text"; padding:4px 9px; border-radius:9px}
+.hero .dots{position:absolute; left:0; right:0; bottom:12px}
+.hero .dots i{background:rgba(255,255,255,.62)}
+.hero .dots i.on{background:#fff; width:18px}
+.thumbs{display:flex; gap:8px; margin-top:10px; flex:none; overflow-x:auto; scrollbar-width:none}
+.thumbs::-webkit-scrollbar{display:none}
+.thumbs button{width:56px; height:56px; border-radius:14px; border:2px solid transparent;
+               padding:0; flex:none; cursor:pointer; overflow:hidden; background:var(--ph-b)}
+.thumbs button.on{border-color:var(--accent)}
+.thumbs img{width:100%; height:100%; object-fit:cover; display:block}
+.thumbs .more{background:var(--surface-sunken); color:var(--muted);
+              font:600 13px "Golos Text"; display:flex; align-items:center; justify-content:center}
+.thumbs .tno{width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+             background:var(--surface-sunken); color:var(--muted-2);
+             font:500 9px "JetBrains Mono"}
+
+.head{display:flex; align-items:flex-end; justify-content:space-between; margin-top:20px; gap:12px}
+.head .p{font:800 34px/1 "Golos Text"; letter-spacing:-.02em; color:var(--text)}
+.head .per{font:400 13px/1 "Golos Text"; color:var(--muted-2); margin-top:4px}
+.score{display:flex; align-items:center; gap:6px; background:var(--badge-soft);
+       padding:7px 11px; border-radius:12px; flex:none}
+.score b{font:800 15px/1 "Golos Text"; color:var(--badge-text)}
+.score span{font:500 11px/1.1 "Golos Text"; color:var(--badge-text-2)}
+.addr{margin-top:14px; display:flex; flex-direction:column; gap:3px}
+.addr .t{font:600 17px/1.3 "Golos Text"; color:var(--text)}
+.addr .s{font:400 14px/1.3 "Golos Text"; color:var(--muted)}
+.tiles{display:flex; gap:8px; margin-top:16px; flex:none}
+.tile{flex:1; height:66px; border-radius:16px; background:var(--surface-sunken);
+      display:flex; flex-direction:column; justify-content:center; gap:3px; padding:0 14px}
+.tile span{font:400 11px/1 "Golos Text"; color:var(--muted-2)}
+.tile b{font:700 16px/1 "Golos Text"; color:var(--text)}
+.drop{margin-top:12px; border-radius:16px; background:var(--accent-soft); padding:14px;
+      display:flex; align-items:center; gap:12px; flex:none}
+.drop .i{width:34px; height:34px; border-radius:11px; background:var(--accent); flex:none;
+         display:flex; align-items:center; justify-content:center}
+.drop .i::after{content:""; width:9px; height:9px; border-right:2.5px solid var(--on-accent);
+                border-bottom:2.5px solid var(--on-accent); transform:rotate(45deg); margin-bottom:3px}
+.drop .t{font:600 14px/1.2 "Golos Text"; color:var(--text)}
+.drop .s{font:400 12px/1.2 "Golos Text"; color:var(--accent-quiet); margin-top:2px}
+.acts{margin-top:auto; padding:14px 0 22px; flex:none}
+.btn{display:flex; align-items:center; justify-content:center; text-decoration:none;
+     height:56px; border-radius:18px; background:var(--accent); color:var(--on-accent);
+     font:700 16px "Golos Text"; box-shadow:var(--sh-accent); border:0; width:100%; cursor:pointer}
+.btn:active{background:var(--accent-pressed)}
+.btn.off{background:var(--surface-sunken); color:var(--muted); box-shadow:none; cursor:default}
+.btn.sec{height:52px; border-radius:17px; background:var(--surface); color:var(--text-2);
+         border:1px solid var(--line); font:600 15px "Golos Text"; box-shadow:none}
+
+.close{position:fixed; z-index:25; left:14px; top:calc(14px + env(safe-area-inset-top));
+       width:40px; height:40px; border-radius:14px; background:var(--surface); border:0;
+       box-shadow:var(--sh-marker); display:none; align-items:center; justify-content:center;
+       cursor:pointer}
+.close.show{display:flex}
+.close::after{content:""; width:9px; height:9px; border-left:2px solid var(--text-2);
+              border-bottom:2px solid var(--text-2); transform:rotate(45deg); margin-left:3px}
+
+/* ── Пусто и загрузка ── */
+.screen{position:fixed; z-index:18; inset:0; display:none; flex-direction:column;
+        align-items:center; padding:0 40px; pointer-events:none}
+.screen.show{display:flex}
+.screen > *{pointer-events:auto}
+.empty-in{margin-top:min(236px, 30vh); display:flex; flex-direction:column;
+          align-items:center; gap:18px; width:100%}
+.mascot{width:132px; height:132px; border-radius:34px; background:var(--surface);
+        box-shadow:0 10px 30px rgba(18,22,15,.10); display:flex; align-items:center;
+        justify-content:center; font-size:62px; flex:none}
+.empty-txt{display:flex; flex-direction:column; gap:8px; align-items:center; text-align:center}
+.empty-txt .t{font:700 22px/1.25 "Golos Text"; color:var(--text)}
+.empty-txt .s{font:400 15px/1.5 "Golos Text"; color:var(--muted); text-wrap:pretty}
+.empty-acts{display:flex; flex-direction:column; gap:10px; align-self:stretch; margin-top:6px}
+.tail-note{position:fixed; left:0; right:0; bottom:calc(26px + env(safe-area-inset-bottom));
+           text-align:center; font:400 12px "Golos Text"; color:var(--muted-2)}
+
+.load-in{margin-top:min(300px, 38vh); display:flex; flex-direction:column;
+         align-items:center; gap:16px}
+.spinner{width:76px; height:76px; border-radius:24px; background:var(--surface);
+         box-shadow:0 10px 28px rgba(18,22,15,.10); display:flex;
+         align-items:center; justify-content:center}
+.spinner::after{content:""; width:30px; height:30px; border-radius:50%;
+                border:3px solid var(--line); border-top-color:var(--accent);
+                animation:spin .9s linear infinite}
+.load-txt{font:500 14px "Golos Text"; color:var(--muted)}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important} }
 </style>
 </head>
-<body>
+<body class="no-map">
 
 <div id="map"></div>
+<div class="grid-bg"></div>
 
-<div class="top">
+<div class="top" id="top">
   <label class="search" id="search">
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-      <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-    <input id="q" type="search" placeholder="Метро, адрес…" autocomplete="off">
-    <button id="qx" type="button" aria-label="Очистить">✕</button>
+    <span class="ico"></span>
+    <input id="q" type="search" placeholder="Метро или адрес" autocomplete="off">
+    <button class="clr" id="qx" type="button" aria-label="Очистить">×</button>
   </label>
-  <div class="chips" id="chips" role="group" aria-label="Фильтр"></div>
+  <div class="chips" id="chips" role="group" aria-label="Комнатность"></div>
 </div>
 
-<div class="counter" id="counter"></div>
-<div class="updated" id="updated"></div>
-<div class="empty" id="empty"><div>Ничего не нашлось</div></div>
+<button class="close" id="close" aria-label="Назад"></button>
 
-<div class="strip" id="strip"></div>
-
-<div class="sheet" id="sheet" role="dialog" aria-label="Квартира">
-  <div class="sheet-in" id="sheet-in"></div>
+<div class="bottom" id="bottom">
+  <div class="counter" id="counter"></div>
+  <div class="strip" id="strip"></div>
+  <div class="dots" id="dots"></div>
 </div>
+
+<div class="screen" id="empty">
+  <div class="empty-in">
+    <div class="mascot">🐻</div>
+    <div class="empty-txt">
+      <div class="t">Здесь пока пусто</div>
+      <div class="s" id="empty-why"></div>
+    </div>
+    <div class="empty-acts">
+      <button class="btn" id="reset">Сбросить фильтры</button>
+      <button class="btn sec" id="showall">Показать всю Москву</button>
+    </div>
+  </div>
+  <div class="tail-note">Новые квартиры появляются каждый день</div>
+</div>
+
+<div class="screen" id="loading">
+  <div class="load-in">
+    <div class="spinner"></div>
+    <div class="load-txt">Собираем квартиры на карте…</div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-label="Квартира"></div>
 
 <script>
-let FLATS = [];      // приходят из data.json — страница и данные живут отдельно
+let FLATS = [], filter = "all", query = "", current = null;
+let markers = [], gallery = [], gIdx = 0;
 
-const KINDS={studio:"Студия",flat_1:"1-комн",flat_2:"2-комн",flat_3:"3-комн",flat_4:"4+ комн",room:"Комната"};
+const $ = s => document.querySelector(s);
+const KINDS = {studio:"Студия", flat_1:"1-комн", flat_2:"2-комн",
+               flat_3:"3-комн", flat_4:"4+ комн", room:"Комната"};
 const nf = new Intl.NumberFormat("ru-RU");
 const money = n => n ? nf.format(n) + " ₽" : "цена не указана";
-const $ = s => document.querySelector(s);
+const CHANNEL = "nedvezhonok";
 
-let filter="all", query="", current=null, markers={}, gallery=[], gIdx=0;
+const dark = () => document.documentElement.dataset.theme === "dark" ||
+  (document.documentElement.dataset.theme !== "light" &&
+   matchMedia("(prefers-color-scheme: dark)").matches);
 
-/* ─────────────────────────────────────────────────────────────
-   MAP_STYLE — внешний вид карты.
-
-   Это ссылка на файл стиля: в нём записано, каким цветом рисовать
-   дороги, воду, парки, подписи. Готовые стили OpenFreeMap:
-   positron (светлый спокойный), bright, liberty, dark, fiord.
-
-   Чтобы сделать карту в цветах Недвежонка: открыть стиль в бесплатном
-   редакторе Maputnik (maputnik.github.io), перекрасить мышкой, скачать
-   получившийся JSON, положить рядом с index.html и написать здесь
-   "style.json". Никакого ключа и оплаты для этого не нужно.
-   ───────────────────────────────────────────────────────────── */
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+/* Подложка — ровно та, что в макете: CARTO Positron в светлой теме и Dark
+   Matter в тёмной. Дизайнер отступил тут от брифа осознанно: Positron под
+   тёмным интерфейсом слишком светлый, белые метки на нём теряются.
+   Стили векторные, поэтому их можно перекрасить дальше — правь ссылку. */
+const STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+const STYLE_DARK  = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
 const map = new maplibregl.Map({
-  container: "map",
-  style: MAP_STYLE,
-  center: [37.6156, 55.7522],       // MapLibre ждёт [долгота, широта]
-  zoom: 9,
-  attributionControl: { compact: true },
+  container:"map", style: dark() ? STYLE_DARK : STYLE_LIGHT,
+  center:[37.6156, 55.7522], zoom:9,
+  attributionControl:{ compact:true },
 });
-map.addControl(new maplibregl.NavigationControl({ showCompass:false }), "bottom-left");
-
-/* Если подложка не загрузилась (сервер тайлов недоступен), приложение
-   обязано остаться рабочим: метки — это обычные элементы страницы, а
-   список квартир внизу от карты вообще не зависит. Поэтому ничего не
-   ждём от карты и просто предупреждаем в углу. */
+map.on("load", () => document.body.classList.remove("no-map"));
 map.on("error", e => {
   const m = String(e && e.error && e.error.message || "");
-  if (/style|sprite|glyphs|tiles/i.test(m)) {
-    const el = document.getElementById("updated");
-    if (el && !el.dataset.warned) {
-      el.dataset.warned = "1";
-      el.textContent = "карта не загрузилась — список ниже работает";
-    }
-  }
+  if (/style|sprite|glyphs|tiles|source/i.test(m)) document.body.classList.add("no-map");
+});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  map.setStyle(dark() ? STYLE_DARK : STYLE_LIGHT);
 });
 
-let markerObjs = [];
+/* Шкала балла из спецификации: 0–59 серый, 60–79 жёлтый, 80–100 зелёный.
+   Цвет текста подбираем под фон, иначе на зелёном тёмно-коричневая цифра
+   не читается. */
+function scoreColors(r){
+  if (r >= 80) return {bg:"var(--accent)", fg:"var(--on-accent)"};
+  if (r >= 60) return {bg:"var(--badge)",  fg:"var(--on-badge)"};
+  return {bg:"#9AA39A", fg:"#12160F"};
+}
 
-function match(f){
+const match = f => {
   if (filter !== "all" && f.kind !== filter) return false;
   if (!query) return true;
   const q = query.toLowerCase();
   return (f.metro||"").toLowerCase().includes(q) ||
          (f.address||"").toLowerCase().includes(q) ||
          (KINDS[f.kind]||"").toLowerCase().includes(q);
-}
+};
 const shown = () => FLATS.filter(match);
+const sorted = () => shown().slice().sort((a,b) => (b.rating||0) - (a.rating||0));
 
-/* Подстановка заглушки вместо не загрузившегося фото.
-   Делаем из кода, а не атрибутом onerror в разметке: там пришлось бы
-   экранировать кавычки внутри кавычек внутри шаблонной строки — на этом
-   уже один раз сломались. */
-function wireImages(root){
-  const swap = img => {
-    const el = document.createElement(img.dataset.tag || "span");
-    el.className = img.dataset.cls || "";
-    el.textContent = img.dataset.fb;
-    img.replaceWith(el);
-  };
-  root.querySelectorAll("img[data-fb]").forEach(img => {
-    img.addEventListener("error", () => swap(img), { once:true });
-    // Картинка могла сломаться ДО того, как мы повесили обработчик: при
-    // вставке разметки браузер начинает грузить её сразу. Признак такой
-    // картинки — загрузка завершена, а ширины нет.
-    if (img.complete && img.naturalWidth === 0) swap(img);
+function img(src, cls, alt){
+  return src ? `<img src="${src}" alt="${alt||""}" class="${cls||""}" loading="lazy" data-fb="1">`
+             : "";
+}
+/* Заглушки вешаем из кода: картинка может сломаться раньше, чем повесим
+   обработчик, поэтому проверяем и уже загруженные. */
+function wireImages(root, tag, cls, text){
+  root.querySelectorAll("img[data-fb]").forEach(im => {
+    const swap = () => {
+      const el = document.createElement(tag || "span");
+      el.className = cls || "none";
+      el.textContent = text || "нет фото";
+      im.replaceWith(el);
+    };
+    im.addEventListener("error", swap, {once:true});
+    if (im.complete && im.naturalWidth === 0) swap();
   });
 }
 
 function markerEl(f, on){
-  const ph = (f.photos||[])[0];
-  const img = ph
-    ? `<span class="ph"><img src="${ph}" alt="" loading="lazy"
-         data-fb="фото" data-cls="ph no" data-tag="span"></span>`
-    : `<span class="ph no">фото</span>`;
+  const c = scoreColors(f.rating || 0);
   const el = document.createElement("div");
   el.className = "mk" + (on ? " on" : "");
-  el.innerHTML = `${img}<span class="sc">${f.rating||"—"}</span>` +
-                 (on ? `<span class="tip">${money(f.last_price)}</span>` : "");
   el.setAttribute("role", "button");
   el.setAttribute("tabindex", "0");
   el.setAttribute("aria-label",
     `${KINDS[f.kind]||"Квартира"}, ${f.metro||"метро не указано"}, ${money(f.last_price)}`);
-  wireImages(el);
+  const ph = (f.photos||[])[0];
+  el.innerHTML =
+    `<div class="box">${ph ? img(ph,"","") : `<div class="no">нет</div>`}</div>` +
+    `<div class="sc" style="background:${c.bg};color:${c.fg}">${f.rating ?? "—"}</div>` +
+    `<div class="tail"></div>` +
+    (on ? `<div class="tip">${money(f.last_price)}</div>` : "");
+  wireImages(el, "div", "no", "нет");
   return el;
 }
 
-function draw(){
-  markerObjs.forEach(m => m.remove());
-  markerObjs = []; markers = {};
-  const f = shown();
-  f.forEach(x => {
-    const el = markerEl(x, current === x.uid);
-    const go = e => { e.stopPropagation(); open(x.uid, false); };
+function drawMarkers(){
+  markers.forEach(m => m.remove());
+  markers = [];
+  shown().forEach(f => {
+    const el = markerEl(f, current === f.uid);
+    const go = e => { e.stopPropagation(); openFlat(f.uid, false); };
     el.addEventListener("click", go);
-    el.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") go(e);
-    });
-    const m = new maplibregl.Marker({ element: el, anchor: "center" })
-                .setLngLat([x.lon, x.lat]).addTo(map);
-    markerObjs.push(m); markers[x.uid] = m;
+    el.addEventListener("keydown", e => (e.key === "Enter" || e.key === " ") && go(e));
+    markers.push(new maplibregl.Marker({element:el, anchor:"bottom"})
+      .setLngLat([f.lon, f.lat]).addTo(map));
   });
-  $("#counter").innerHTML = `<b>${f.length}</b> ${plural(f.length,"квартира","квартиры","квартир")}`;
-  $("#empty").style.display = f.length ? "none" : "grid";
-  strip(f);
 }
 
-function plural(n,a,b,c){ n=Math.abs(n)%100; if(n>=11&&n<=14)return c; n%=10;
-  return n===1?a:(n>=2&&n<=4?b:c); }
+function drawChips(){
+  const c = {};
+  FLATS.forEach(f => c[f.kind] = (c[f.kind]||0) + 1);
+  const opts = [["all","Все"], ...Object.keys(KINDS).filter(k => c[k]).map(k => [k, KINDS[k]])];
+  $("#chips").innerHTML = opts.map(([k,l]) =>
+    `<button class="chip" data-k="${k}" aria-pressed="${k===filter}">${l}</button>`).join("");
+  $("#chips").querySelectorAll(".chip").forEach(b => b.onclick = () => {
+    filter = b.dataset.k; current = null; closeSheet(); render();
+  });
+}
 
-function strip(f){
-  const el = $("#strip");
-  el.innerHTML = f.slice().sort((a,b)=>(b.rating||0)-(a.rating||0)).map(x=>{
-    const ph=(x.photos||[])[0];
-    return `<button class="mini${current===x.uid?" on":""}" data-uid="${x.uid}">
-      ${ph?`<img class="th" src="${ph}" alt="" loading="lazy"
-             data-fb="нет фото" data-cls="th no" data-tag="span">`
-          :`<span class="th no">нет фото</span>`}
+function drawStrip(){
+  const f = sorted();
+  $("#strip").innerHTML = f.map(x => {
+    const ph = (x.photos||[])[0], n = (x.photos||[]).length;
+    const drop = x.first_price && x.last_price && x.last_price < x.first_price;
+    const bits = [KINDS[x.kind]||"Квартира"];
+    if (x.area) bits.push(String(x.area).replace(".",",") + " м²");
+    if (x.floor) bits.push(x.floor + (x.floors_total ? "/" + x.floors_total : ""));
+    return `<button class="card${current===x.uid?" on":""}" data-uid="${x.uid}">
+      <span class="pic">${ph ? img(ph) : `<span class="none">нет фото</span>`}
+        ${n>1 ? `<span class="n">1/${n}</span>` : ""}</span>
       <span class="info">
-        <span class="p">${money(x.last_price)}</span>
-        <span class="m">${KINDS[x.kind]||"Квартира"}${x.area?` · ${String(x.area).replace(".",",")} м²`:""}</span>
-        <span class="m">${x.metro||"—"}${x.minutes!=null?` · ${x.minutes} мин`:""}</span>
+        <span class="row">
+          <span style="display:flex;align-items:baseline;gap:7px">
+            <span class="price">${money(x.last_price)}</span>
+            ${drop ? `<span class="was">${nf.format(x.first_price)}</span>` : ""}
+          </span>
+          <span class="pill">${x.rating ?? "—"}</span>
+        </span>
+        <span class="meta">${bits.join(" · ")}</span>
+        <span class="sub">${x.metro || "—"}${x.minutes!=null ? ` · ${x.minutes} мин пешком` : ""}</span>
       </span></button>`;
   }).join("");
-  wireImages(el);
-  el.querySelectorAll(".mini").forEach(b => b.onclick = () => open(b.dataset.uid, true));
+  wireImages($("#strip"), "span", "none", "нет фото");
+  $("#strip").querySelectorAll(".card").forEach(b =>
+    b.onclick = () => openFlat(b.dataset.uid, true));
+  drawDots(f.length);
 }
 
-function open(uid, fly){
+function drawDots(n){
+  const el = $("#dots");
+  if (n < 2 || n > 8){ el.innerHTML = ""; return; }
+  el.innerHTML = Array.from({length:n}, (_,i) => `<i class="${i?"":"on"}"></i>`).join("");
+}
+$("#strip").addEventListener("scroll", () => {
+  const el = $("#dots"); if (!el.children.length) return;
+  const i = Math.round($("#strip").scrollLeft / 312);
+  [...el.children].forEach((d,k) => d.classList.toggle("on", k === i));
+}, {passive:true});
+
+function plural(n,a,b,c){ n = Math.abs(n)%100; if (n>=11&&n<=14) return c; n%=10;
+  return n===1?a:(n>=2&&n<=4?b:c); }
+
+function drawCounter(d){
+  const n = shown().length;
+  $("#counter").innerHTML = `<b>${n} ${plural(n,"квартира","квартиры","квартир")}</b>` +
+    (d ? `<i>·</i><span style="color:var(--muted)">обновлено ${d}</span>` : "");
+}
+
+function openFlat(uid, fly){
   const x = FLATS.find(f => f.uid === uid); if (!x) return;
   current = uid; gallery = x.photos || []; gIdx = 0;
-  if (fly) map.flyTo({ center:[x.lon, x.lat],
-                       zoom: Math.max(map.getZoom(), 13), duration: 600 });
+  if (fly) map.flyTo({center:[x.lon, x.lat], zoom:Math.max(map.getZoom(), 13), duration:600});
 
   const drop = x.first_price && x.last_price && x.last_price < x.first_price
              ? x.first_price - x.last_price : 0;
-  const chan = x.channel_msg_id ? `https://t.me/nedvezhonok/${x.channel_msg_id}` : null;
-  const cian = x.source === "cian" ? (x.uid.split(":")[1]||"") : "";
+  const link = x.channel_msg_id ? `https://t.me/${CHANNEL}/${x.channel_msg_id}`
+             : (x.source === "cian" ? `https://www.cian.ru/rent/flat/${x.uid.split(":")[1]}/` : "");
+  const label = x.channel_msg_id ? "Смотреть в канале" : "Смотреть объявление";
+  const gone = x.status === "gone";
+  const c = scoreColors(x.rating || 0);
 
-  $("#sheet-in").innerHTML = `
-    <div class="hero">
-      ${gallery.length
-        ? `<img id="hero-img" src="${gallery[0]}" alt=""
-               data-fb="фото не загрузилось" data-cls="none" data-tag="div">
-           ${gallery.length>1?`<div class="dots" id="dots">${gallery.map((_,i)=>
-              `<i class="${i?'':'on'}"></i>`).join("")}</div>`:""}`
-        : `<div class="none">фотографий нет</div>`}
-      <span class="badge">${x.rating||"—"} / 100</span>
-      <button class="x" id="close" aria-label="Закрыть">✕</button>
+  $("#sheet").innerHTML = `
+    <div class="grab"></div>
+    <div class="hero" id="hero">
+      ${gallery.length ? img(gallery[0], "", "фото квартиры")
+                       : `<div class="none">фотографий нет</div>`}
+      ${gallery.length>1 ? `<div class="cnt" id="hero-cnt">1 / ${gallery.length}</div>
+        <div class="dots" id="hero-dots">${gallery.slice(0,8).map((_,i)=>
+          `<i class="${i?"":"on"}"></i>`).join("")}</div>` : ""}
     </div>
-    <div class="body">
-      <div class="price">${money(x.last_price)}</div>
-      <div class="addr">📍 ${x.address || x.metro || "адрес не указан"}</div>
-      <div class="specs">
-        <div class="spec"><b>${x.area?String(x.area).replace(".",","):"—"}</b><span>м²</span></div>
-        <div class="spec"><b>${x.floor?x.floor+(x.floors_total?"/"+x.floors_total:""):"—"}</b><span>этаж</span></div>
-        <div class="spec"><b>${x.minutes!=null?x.minutes:"—"}</b><span>мин до ${x.metro||"метро"}</span></div>
-      </div>
-      ${drop?`<div class="drop">Подешевела: ${nf.format(x.first_price)} → ${money(x.last_price)} (−${nf.format(drop)})</div>`:""}
-      <div class="acts">
-        ${/* Одна кнопка, и она ведёт в канал: карта — витрина канала,
-              уводить читателя на сторонний сайт незачем. Если поста в канале
-              нет (квартиру опубликовали до того, как бот стал запоминать
-              номера сообщений), кнопка ведёт на первоисточник — иначе
-              карточка осталась бы вообще без действия. */ ""}
-        ${chan
-          ? `<a class="btn go" target="_blank" rel="noopener"
-               href="${chan}">Смотреть в канале</a>`
-          : (cian ? `<a class="btn go" target="_blank" rel="noopener"
-               href="https://www.cian.ru/rent/flat/${cian}/">Смотреть объявление</a>` : "")}
-      </div>
+    ${gallery.length>1 ? `<div class="thumbs" id="thumbs">${gallery.slice(0,5).map((p,i)=>
+        `<button data-i="${i}" class="${i?"":"on"}">${img(p)}</button>`).join("")}
+        ${gallery.length>5 ? `<button class="more">+${gallery.length-5}</button>` : ""}</div>` : ""}
+    <div class="head">
+      <div><div class="p">${money(x.last_price)}</div><div class="per">в месяц</div></div>
+      <div class="score"><b>${x.rating ?? "—"}</b><span>балл<br>объявления</span></div>
+    </div>
+    <div class="addr">
+      <div class="t">${KINDS[x.kind]||"Квартира"}${x.address ? " · " + x.address : ""}</div>
+      <div class="s">${x.metro ? "м. " + x.metro : "метро не указано"}${
+        x.minutes!=null ? ` · ${x.minutes} мин пешком` : ""}</div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><span>площадь</span><b>${x.area ? String(x.area).replace(".",",")+" м²" : "—"}</b></div>
+      <div class="tile"><span>этаж</span><b>${x.floor ? x.floor + (x.floors_total?"/"+x.floors_total:"") : "—"}</b></div>
+      <div class="tile"><span>до метро</span><b>${x.minutes!=null ? x.minutes+" мин" : "—"}</b></div>
+    </div>
+    ${drop ? `<div class="drop"><div class="i"></div><div>
+        <div class="t">Подешевела на ${nf.format(drop)} ₽</div>
+        <div class="s">было ${nf.format(x.first_price)} ₽</div></div></div>` : ""}
+    <div class="acts">
+      ${gone ? `<div class="btn off">Объявление снято</div>`
+        : (link ? `<a class="btn" href="${link}" target="_blank" rel="noopener">${label}</a>` : "")}
     </div>`;
 
-  wireImages($("#sheet-in"));
-  $("#sheet").classList.add("open");
-  $("#strip").classList.add("hide");
-  $("#close").onclick = close;
+  // Заглушки разной длины: в большом фото помещается фраза, в квадрате
+  // 56 px — только короткое слово.
+  wireImages($("#hero"), "div", "none", "фото не загрузилось");
+  const th = $("#thumbs");
+  if (th) wireImages(th, "span", "tno", "нет");
+  $("#sheet").querySelector(".score b").style.color = "var(--badge-text)";
   if (gallery.length > 1){
-    const img = $("#hero-img");
-    img.onclick = () => {
-      gIdx = (gIdx + 1) % gallery.length;
-      img.src = gallery[gIdx];
-      $("#dots").querySelectorAll("i").forEach((d,i)=>d.classList.toggle("on", i===gIdx));
-    };
-    img.style.cursor = "pointer";
+    $("#thumbs").querySelectorAll("button[data-i]").forEach(b =>
+      b.onclick = () => showPhoto(+b.dataset.i));
+    $("#hero").onclick = () => showPhoto((gIdx + 1) % gallery.length);
   }
-  draw();
+  $("#sheet").classList.add("open");
+  $("#bottom").classList.add("hide");
+  $("#close").classList.add("show");
+  $("#top").style.opacity = "0";
+  $("#top").style.pointerEvents = "none";
+  drawMarkers();
 }
 
-function close(){
+function showPhoto(i){
+  gIdx = i;
+  const hero = $("#hero"), old = hero.querySelector("img,.none");
+  const el = document.createElement("img");
+  el.src = gallery[i]; el.alt = ""; el.dataset.fb = "1";
+  if (old) old.replaceWith(el); else hero.prepend(el);
+  wireImages(hero, "div", "none", "фото не загрузилось");
+  const cnt = $("#hero-cnt"); if (cnt) cnt.textContent = `${i+1} / ${gallery.length}`;
+  const d = $("#hero-dots");
+  if (d) [...d.children].forEach((x,k) => x.classList.toggle("on", k === i));
+  const t = $("#thumbs");
+  if (t) t.querySelectorAll("button[data-i]").forEach(b =>
+    b.classList.toggle("on", +b.dataset.i === i));
+}
+
+function closeSheet(){
   current = null;
   $("#sheet").classList.remove("open");
-  $("#strip").classList.remove("hide");
-  draw();
+  $("#bottom").classList.remove("hide");
+  $("#close").classList.remove("show");
+  $("#top").style.opacity = "";
+  $("#top").style.pointerEvents = "";
+  drawMarkers();
 }
-map.on("click", close);
-document.addEventListener("keydown", e => e.key === "Escape" && close());
+$("#close").onclick = closeSheet;
+map.on("click", closeSheet);
+document.addEventListener("keydown", e => e.key === "Escape" && closeSheet());
 
-function chips(){
-  const c = {}; FLATS.forEach(f => c[f.kind] = (c[f.kind]||0)+1);
-  const opts = [["all","Все",FLATS.length],
-    ...Object.keys(KINDS).filter(k=>c[k]).map(k=>[k,KINDS[k],c[k]])];
-  $("#chips").innerHTML = opts.map(([k,l,n]) =>
-    `<button class="chip" data-k="${k}" aria-pressed="${k===filter}">${l} · ${n}</button>`).join("");
-  $("#chips").querySelectorAll(".chip").forEach(b => b.onclick = () => {
-    filter = b.dataset.k; close(); chips(); draw();
-  });
+function fitAll(list){
+  const pts = (list || FLATS).filter(f => f.lat && f.lon);
+  if (!pts.length) return;
+  const b = new maplibregl.LngLatBounds();
+  pts.forEach(f => b.extend([f.lon, f.lat]));
+  map.fitBounds(b, {padding:{top:150, bottom:200, left:50, right:50}, maxZoom:14, duration:600});
+}
+
+function whyEmpty(){
+  const parts = [];
+  if (filter !== "all") parts.push((KINDS[filter]||"").toLowerCase());
+  if (query) parts.push(`по запросу «${query}»`);
+  if (!FLATS.length) return "В канале ещё нет опубликованных квартир. Они появятся здесь, как только выйдут первые посты.";
+  if (!parts.length) return "Ничего не нашлось.";
+  return `Таких вариантов (${parts.join(", ")}) в канале ещё не было. Попробуйте убрать фильтр или посмотреть соседние станции.`;
+}
+
+function render(updated){
+  drawChips(); drawCounter(updated); drawMarkers(); drawStrip();
+  const none = shown().length === 0;
+  $("#empty").classList.toggle("show", none);
+  $("#empty-why").textContent = none ? whyEmpty() : "";
+  $("#bottom").style.display = none ? "none" : "";
 }
 
 $("#q").oninput = e => {
   query = e.target.value.trim();
   $("#search").classList.toggle("has", !!query);
-  draw();
+  render(window.__upd);
 };
-$("#qx").onclick = () => { $("#q").value=""; query=""; $("#search").classList.remove("has"); draw(); };
+$("#qx").onclick = () => { $("#q").value = ""; query = ""; $("#search").classList.remove("has"); render(window.__upd); };
+$("#reset").onclick = () => {
+  filter = "all"; query = ""; $("#q").value = ""; $("#search").classList.remove("has");
+  render(window.__upd); fitAll();
+};
+$("#showall").onclick = () => fitAll();
 
-function boot(){
-  chips(); draw();
-  if (!FLATS.length) return;
-  // рамка по всем квартирам: одна — приблизимся к дому, разбросаны
-  // по области — отдалимся и покажем все
-  const b = new maplibregl.LngLatBounds();
-  FLATS.forEach(f => b.extend([f.lon, f.lat]));
-  map.fitBounds(b, { padding: 70, maxZoom: 14, duration: 0 });
-}
-
-/* Данные тянем из соседнего файла. ?v= с меткой времени — чтобы браузер
-   не показывал вчерашний список из своего кэша. */
+$("#loading").classList.add("show");
 fetch("data.json?v=" + Date.now())
   .then(r => r.ok ? r.json() : Promise.reject(r.status))
   .then(d => {
-    FLATS = d.flats || [];
-    if (d.updated) $("#updated").textContent = "обновлено " + d.updated;
-    boot();
+    FLATS = (d.flats || []).filter(f => f.lat && f.lon);
+    window.__upd = d.updated || "";
+    $("#loading").classList.remove("show");
+    render(window.__upd);
+    fitAll();
   })
-  .catch(e => {
-    $("#empty").style.display = "grid";
-    $("#empty").firstElementChild.textContent =
-      "Не удалось загрузить квартиры (" + e + ")";
-    boot();
+  .catch(() => {
+    $("#loading").classList.remove("show");
+    render("");
+    $("#empty").classList.add("show");
+    $("#empty-why").textContent = "Не удалось загрузить список квартир. Попробуйте открыть ещё раз.";
   });
 </script>
 </body>
