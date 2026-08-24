@@ -312,9 +312,14 @@ function open(uid, fly){
       </div>
       ${drop?`<div class="drop">Подешевела: ${nf.format(x.first_price)} → ${money(x.last_price)} (−${nf.format(drop)})</div>`:""}
       <div class="acts">
-        ${cian?`<a class="btn go" target="_blank" rel="noopener"
-             href="https://www.cian.ru/rent/flat/${cian}/">Смотреть объявление</a>`:""}
-        ${chan?`<a class="btn" target="_blank" rel="noopener" href="${chan}">В канале</a>`:""}
+        ${/* Главная кнопка — пост в канале: карта это витрина канала, и уводить
+              читателя на сторонний сайт незачем. Если поста нет (квартиру
+              опубликовали до того, как бот стал запоминать номера сообщений),
+              главной становится ссылка на первоисточник. */ ""}
+        ${chan?`<a class="btn go" target="_blank" rel="noopener"
+             href="${chan}">Открыть в канале</a>`:""}
+        ${cian?`<a class="btn${chan?"":" go"}" target="_blank" rel="noopener"
+             href="https://www.cian.ru/rent/flat/${cian}/">${chan?"Первоисточник":"Смотреть объявление"}</a>`:""}
       </div>
     </div>`;
 
