@@ -131,7 +131,13 @@ body.no-map .maplibregl-ctrl-attrib{visibility:hidden}
 .chip[aria-pressed="true"]{background:var(--text); color:var(--bg); font-weight:600; box-shadow:none}
 
 /* ── Метка ── */
-.mk{position:relative; width:46px; height:46px; cursor:pointer}
+/* ВАЖНО: не задавать здесь position. MapLibre позиционирует свои метки
+   правилом .maplibregl-marker{position:absolute}, а наш блок стилей идёт
+   в файле позже и с той же силой — поэтому position:relative его перебивал,
+   метки выстраивались обычным потоком в столбик и уезжали при масштабе.
+   Абсолютное позиционирование от MapLibre и так делает метку точкой
+   отсчёта для бейджа, хвостика и подписи внутри неё. */
+.mk{width:46px; height:46px; cursor:pointer}
 .mk .box{width:46px; height:46px; border-radius:15px; background:var(--surface); padding:3px;
          box-shadow:var(--sh-marker)}
 .mk .box>*{width:100%; height:100%; border-radius:12px; display:block; object-fit:cover;
