@@ -109,7 +109,14 @@ body.no-map .maplibregl-ctrl-attrib{visibility:hidden}
 .top{position:fixed; z-index:20; left:0; right:0; top:0;
      padding:calc(14px + env(safe-area-inset-top)) 16px 0;
      display:flex; flex-direction:column; gap:10px; pointer-events:none}
-.search{pointer-events:auto; height:48px; border-radius:16px; background:var(--surface);
+.searchrow{display:flex; gap:8px; align-items:center}
+.themebtn{pointer-events:auto; flex:none; width:48px; height:48px; border-radius:16px;
+          background:var(--surface); border:var(--card-border) solid var(--line);
+          box-shadow:var(--sh-float); cursor:pointer; display:flex;
+          align-items:center; justify-content:center; padding:0; color:var(--text-2)}
+.themebtn:active{background:var(--surface-sunken)}
+.themebtn svg{display:block}
+.search{pointer-events:auto; flex:1; min-width:0; height:48px; border-radius:16px; background:var(--surface);
         box-shadow:var(--sh-float); display:flex; align-items:center; gap:10px; padding:0 16px;
         border:var(--card-border) solid var(--line)}
 .search .ico{width:15px; height:15px; border:2px solid var(--muted-2); border-radius:50%; flex:none}
@@ -309,11 +316,14 @@ body.no-map .maplibregl-ctrl-attrib{visibility:hidden}
 <div class="grid-bg"></div>
 
 <div class="top" id="top">
-  <label class="search" id="search">
-    <span class="ico"></span>
-    <input id="q" type="search" placeholder="Метро или адрес" autocomplete="off">
-    <button class="clr" id="qx" type="button" aria-label="Очистить">×</button>
-  </label>
+  <div class="searchrow">
+    <label class="search" id="search">
+      <span class="ico"></span>
+      <input id="q" type="search" placeholder="Метро или адрес" autocomplete="off">
+      <button class="clr" id="qx" type="button" aria-label="Очистить">×</button>
+    </label>
+    <button class="themebtn" id="theme" type="button" aria-label="Сменить тему"></button>
+  </div>
   <div class="chips" id="chips" role="group" aria-label="Комнатность"></div>
 </div>
 
@@ -360,9 +370,29 @@ const nf = new Intl.NumberFormat("ru-RU");
 const money = n => n ? nf.format(n) + " ₽" : "цена не указана";
 const CHANNEL = "nedvezhonok";
 
+/* Тема. По умолчанию берём ту же, что в Телеграме. Если человек нажал
+   кнопку — его выбор побеждает и запоминается в браузере. Память может
+   быть недоступна (приватный режим, запрет на данные сайтов), поэтому
+   каждое обращение к ней обёрнуто. */
+const THEME_KEY = "nedvezhonok-theme";
+const savedTheme = (() => {
+  try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; }
+})();
+if (savedTheme === "dark" || savedTheme === "light") {
+  document.documentElement.dataset.theme = savedTheme;
+}
+
 const dark = () => document.documentElement.dataset.theme === "dark" ||
   (document.documentElement.dataset.theme !== "light" &&
    matchMedia("(prefers-color-scheme: dark)").matches);
+
+const ICON_SUN = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round">
+  <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2
+  M6.3 6.3 4.8 4.8M19.2 19.2l-1.5-1.5M17.7 6.3l1.5-1.5M4.8 19.2l1.5-1.5"/></svg>`;
+const ICON_MOON = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+  <path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2Z"/></svg>`;
 
 /* Подложка — ровно та, что в макете: CARTO Positron в светлой теме и Dark
    Matter в тёмной. Дизайнер отступил тут от брифа осознанно: Positron под
@@ -381,8 +411,26 @@ map.on("error", e => {
   const m = String(e && e.error && e.error.message || "");
   if (/style|sprite|glyphs|tiles|source/i.test(m)) document.body.classList.add("no-map");
 });
+/* Иконка показывает, КУДА переключит нажатие: в тёмной теме рисуем солнце,
+   в светлой — луну. Так понятнее, чем показывать текущее состояние. */
+function paintThemeButton(){
+  document.getElementById("theme").innerHTML = dark() ? ICON_SUN : ICON_MOON;
+}
+paintThemeButton();
+
+document.getElementById("theme").onclick = () => {
+  const next = dark() ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+  map.setStyle(next === "dark" ? STYLE_DARK : STYLE_LIGHT);
+  paintThemeButton();
+};
+
+// Пока человек не выбрал тему сам, следуем за Телеграмом.
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (document.documentElement.dataset.theme) return;
   map.setStyle(dark() ? STYLE_DARK : STYLE_LIGHT);
+  paintThemeButton();
 });
 
 /* Шкала балла из спецификации: 0–59 серый, 60–79 жёлтый, 80–100 зелёный.
