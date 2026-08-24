@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Недвежонок — карта квартир</title>
 
-<!-- Карта: Leaflet + OpenStreetMap. Без ключей и регистрации.
-     Как переключить на Яндекс или 2ГИС — см. блок MAP_PROVIDER внизу файла. -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Карта: MapLibre GL + векторные тайлы OpenFreeMap. Без ключей и
+     регистрации. Векторная — значит браузер рисует её сам по файлу стиля,
+     поэтому цвета дорог, воды, парков и подписей можно задать своими.
+     Как поставить свой стиль — см. MAP_STYLE в скрипте ниже. -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap">
@@ -48,8 +50,11 @@ body{margin:0; background:var(--bg); color:var(--ink);
      overflow:hidden; -webkit-font-smoothing:antialiased}
 
 #map{position:fixed; inset:0; z-index:1; background:var(--bg)}
-.leaflet-container{font-family:inherit; background:var(--bg)}
-.leaflet-control-attribution{font-size:9px; opacity:.65}
+.maplibregl-map{font-family:inherit; background:var(--bg)}
+.maplibregl-ctrl-attrib{font-size:9px; opacity:.7}
+.maplibregl-ctrl-attrib a{color:var(--muted)}
+.maplibregl-ctrl-group{border-radius:11px !important; overflow:hidden;
+                       box-shadow:var(--shadow-sm) !important}
 
 /* ── Верхняя панель: поиск + фильтры ── */
 .top{position:fixed; z-index:20; top:0; left:0; right:0; padding:12px 12px 0;
@@ -88,8 +93,8 @@ body{margin:0; background:var(--bg); color:var(--ink);
          background:var(--card); border:1px solid var(--line); border-radius:9px;
          padding:3px 8px; font-size:12px; font-weight:600; white-space:nowrap;
          box-shadow:var(--shadow-sm); font-variant-numeric:tabular-nums}
-.leaflet-marker-icon.on{z-index:9999 !important}
-.leaflet-marker-icon.on .ph{border-color:var(--green); transform:scale(1.1)}
+.mk.on{z-index:9999}
+.mk.on .ph{border-color:var(--green); transform:scale(1.1)}
 
 /* ── Нижняя карточка ── */
 .sheet{position:fixed; z-index:30; left:0; right:0; bottom:0;
@@ -195,18 +200,6 @@ body{margin:0; background:var(--bg); color:var(--ink);
 <script>
 let FLATS = [];      // приходят из data.json — страница и данные живут отдельно
 
-/* ─────────────────────────────────────────────────────────────
-   MAP_PROVIDER — какую карту показывать.
-
-   "osm"  — OpenStreetMap. Работает сразу, ключ не нужен.
-   Яндекс.Карты и 2ГИС подключаются их собственными SDK и требуют
-   ключ (у Яндекса бесплатный тариф с лимитами, у 2ГИС демо-ключ
-   на месяц). Их плитки нельзя подставлять в Leaflet напрямую —
-   нужен их скрипт. Как будет ключ, скажи: перепишу инициализацию
-   карты на нужный SDK, остальной интерфейс не изменится.
-   ───────────────────────────────────────────────────────────── */
-const MAP_PROVIDER = "osm";
-
 const KINDS={studio:"Студия",flat_1:"1-комн",flat_2:"2-комн",flat_3:"3-комн",flat_4:"4+ комн",room:"Комната"};
 const nf = new Intl.NumberFormat("ru-RU");
 const money = n => n ? nf.format(n) + " ₽" : "цена не указана";
@@ -214,17 +207,45 @@ const $ = s => document.querySelector(s);
 
 let filter="all", query="", current=null, markers={}, gallery=[], gIdx=0;
 
-const map = L.map("map", { zoomControl:false, attributionControl:true })
-             .setView([55.7300, 37.6100], 10);
-L.control.zoom({ position:"bottomleft" }).addTo(map);
-/* Светлая подложка CARTO Positron: спокойный серо-белый вид, на котором
-   видно метки, а не рекламу магазинов. Обычный OSM для этого слишком пёстрый. */
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png", {
-  maxZoom:19, subdomains:"abcd",
-  attribution:'© OpenStreetMap, © CARTO'
-}).addTo(map);
+/* ─────────────────────────────────────────────────────────────
+   MAP_STYLE — внешний вид карты.
 
-const layer = L.layerGroup().addTo(map);
+   Это ссылка на файл стиля: в нём записано, каким цветом рисовать
+   дороги, воду, парки, подписи. Готовые стили OpenFreeMap:
+   positron (светлый спокойный), bright, liberty, dark, fiord.
+
+   Чтобы сделать карту в цветах Недвежонка: открыть стиль в бесплатном
+   редакторе Maputnik (maputnik.github.io), перекрасить мышкой, скачать
+   получившийся JSON, положить рядом с index.html и написать здесь
+   "style.json". Никакого ключа и оплаты для этого не нужно.
+   ───────────────────────────────────────────────────────────── */
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: MAP_STYLE,
+  center: [37.6156, 55.7522],       // MapLibre ждёт [долгота, широта]
+  zoom: 9,
+  attributionControl: { compact: true },
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass:false }), "bottom-left");
+
+/* Если подложка не загрузилась (сервер тайлов недоступен), приложение
+   обязано остаться рабочим: метки — это обычные элементы страницы, а
+   список квартир внизу от карты вообще не зависит. Поэтому ничего не
+   ждём от карты и просто предупреждаем в углу. */
+map.on("error", e => {
+  const m = String(e && e.error && e.error.message || "");
+  if (/style|sprite|glyphs|tiles/i.test(m)) {
+    const el = document.getElementById("updated");
+    if (el && !el.dataset.warned) {
+      el.dataset.warned = "1";
+      el.textContent = "карта не загрузилась — список ниже работает";
+    }
+  }
+});
+
+let markerObjs = [];
 
 function match(f){
   if (filter !== "all" && f.kind !== filter) return false;
@@ -236,27 +257,58 @@ function match(f){
 }
 const shown = () => FLATS.filter(match);
 
-function icon(f, on){
-  const ph = (f.photos||[])[0];
-  const img = ph
-    ? `<span class="ph"><img src="${ph}" alt="" loading="lazy"
-         onerror="var p=this.parentNode;p.classList.add('no');p.textContent='фото'"></span>`
-    : `<span class="ph no">фото</span>`;
-  return L.divIcon({
-    className: on ? "on" : "",
-    html: `<div class="mk">${img}<span class="sc">${f.rating||"—"}</span>
-             ${on ? `<span class="tip">${money(f.last_price)}</span>` : ""}</div>`,
-    iconSize:[46,46], iconAnchor:[23,23]
+/* Подстановка заглушки вместо не загрузившегося фото.
+   Делаем из кода, а не атрибутом onerror в разметке: там пришлось бы
+   экранировать кавычки внутри кавычек внутри шаблонной строки — на этом
+   уже один раз сломались. */
+function wireImages(root){
+  const swap = img => {
+    const el = document.createElement(img.dataset.tag || "span");
+    el.className = img.dataset.cls || "";
+    el.textContent = img.dataset.fb;
+    img.replaceWith(el);
+  };
+  root.querySelectorAll("img[data-fb]").forEach(img => {
+    img.addEventListener("error", () => swap(img), { once:true });
+    // Картинка могла сломаться ДО того, как мы повесили обработчик: при
+    // вставке разметки браузер начинает грузить её сразу. Признак такой
+    // картинки — загрузка завершена, а ширины нет.
+    if (img.complete && img.naturalWidth === 0) swap(img);
   });
 }
 
+function markerEl(f, on){
+  const ph = (f.photos||[])[0];
+  const img = ph
+    ? `<span class="ph"><img src="${ph}" alt="" loading="lazy"
+         data-fb="фото" data-cls="ph no" data-tag="span"></span>`
+    : `<span class="ph no">фото</span>`;
+  const el = document.createElement("div");
+  el.className = "mk" + (on ? " on" : "");
+  el.innerHTML = `${img}<span class="sc">${f.rating||"—"}</span>` +
+                 (on ? `<span class="tip">${money(f.last_price)}</span>` : "");
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("aria-label",
+    `${KINDS[f.kind]||"Квартира"}, ${f.metro||"метро не указано"}, ${money(f.last_price)}`);
+  wireImages(el);
+  return el;
+}
+
 function draw(){
-  layer.clearLayers(); markers = {};
+  markerObjs.forEach(m => m.remove());
+  markerObjs = []; markers = {};
   const f = shown();
   f.forEach(x => {
-    const m = L.marker([x.lat, x.lon], { icon: icon(x, current === x.uid), riseOnHover:true })
-               .on("click", () => open(x.uid, false));
-    m.addTo(layer); markers[x.uid] = m;
+    const el = markerEl(x, current === x.uid);
+    const go = e => { e.stopPropagation(); open(x.uid, false); };
+    el.addEventListener("click", go);
+    el.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") go(e);
+    });
+    const m = new maplibregl.Marker({ element: el, anchor: "center" })
+                .setLngLat([x.lon, x.lat]).addTo(map);
+    markerObjs.push(m); markers[x.uid] = m;
   });
   $("#counter").innerHTML = `<b>${f.length}</b> ${plural(f.length,"квартира","квартиры","квартир")}`;
   $("#empty").style.display = f.length ? "none" : "grid";
@@ -271,7 +323,8 @@ function strip(f){
   el.innerHTML = f.slice().sort((a,b)=>(b.rating||0)-(a.rating||0)).map(x=>{
     const ph=(x.photos||[])[0];
     return `<button class="mini${current===x.uid?" on":""}" data-uid="${x.uid}">
-      ${ph?`<img class="th" src="${ph}" alt="" loading="lazy" onerror="this.className=&quot;th no&quot;;this.removeAttribute(&quot;src&quot;)">`
+      ${ph?`<img class="th" src="${ph}" alt="" loading="lazy"
+             data-fb="нет фото" data-cls="th no" data-tag="span">`
           :`<span class="th no">нет фото</span>`}
       <span class="info">
         <span class="p">${money(x.last_price)}</span>
@@ -279,13 +332,15 @@ function strip(f){
         <span class="m">${x.metro||"—"}${x.minutes!=null?` · ${x.minutes} мин`:""}</span>
       </span></button>`;
   }).join("");
+  wireImages(el);
   el.querySelectorAll(".mini").forEach(b => b.onclick = () => open(b.dataset.uid, true));
 }
 
 function open(uid, fly){
   const x = FLATS.find(f => f.uid === uid); if (!x) return;
   current = uid; gallery = x.photos || []; gIdx = 0;
-  if (fly) map.flyTo([x.lat, x.lon], Math.max(map.getZoom(), 13), { duration:.5 });
+  if (fly) map.flyTo({ center:[x.lon, x.lat],
+                       zoom: Math.max(map.getZoom(), 13), duration: 600 });
 
   const drop = x.first_price && x.last_price && x.last_price < x.first_price
              ? x.first_price - x.last_price : 0;
@@ -295,7 +350,8 @@ function open(uid, fly){
   $("#sheet-in").innerHTML = `
     <div class="hero">
       ${gallery.length
-        ? `<img id="hero-img" src="${gallery[0]}" alt="" onerror="this.style.display=&quot;none&quot;">
+        ? `<img id="hero-img" src="${gallery[0]}" alt=""
+               data-fb="фото не загрузилось" data-cls="none" data-tag="div">
            ${gallery.length>1?`<div class="dots" id="dots">${gallery.map((_,i)=>
               `<i class="${i?'':'on'}"></i>`).join("")}</div>`:""}`
         : `<div class="none">фотографий нет</div>`}
@@ -325,6 +381,7 @@ function open(uid, fly){
       </div>
     </div>`;
 
+  wireImages($("#sheet-in"));
   $("#sheet").classList.add("open");
   $("#strip").classList.add("hide");
   $("#close").onclick = close;
@@ -369,9 +426,12 @@ $("#qx").onclick = () => { $("#q").value=""; query=""; $("#search").classList.re
 
 function boot(){
   chips(); draw();
-  const pts = FLATS.map(f => [f.lat, f.lon]);
-  if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(.12));
-  else map.setView([55.7522, 37.6156], 10);
+  if (!FLATS.length) return;
+  // рамка по всем квартирам: одна — приблизимся к дому, разбросаны
+  // по области — отдалимся и покажем все
+  const b = new maplibregl.LngLatBounds();
+  FLATS.forEach(f => b.extend([f.lon, f.lat]));
+  map.fitBounds(b, { padding: 70, maxZoom: 14, duration: 0 });
 }
 
 /* Данные тянем из соседнего файла. ?v= с меткой времени — чтобы браузер
