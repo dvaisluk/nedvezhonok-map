@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Недвежонок — карта квартир</title>
+
+<!-- Карта: Leaflet + OpenStreetMap. Без ключей и регистрации.
+     Как переключить на Яндекс или 2ГИС — см. блок MAP_PROVIDER внизу файла. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap">
+
+<style>
+:root{
+  --bg:#F1F3F2; --card:#FFFFFF; --ink:#16211C; --muted:#6B7A72;
+  --line:#E6EAE8; --line-2:#F0F3F1;
+  --green:#3F8F27; --green-soft:#E8F4E2;
+  --amber:#F0A020; --amber-ink:#1F1503;
+  --shadow:0 2px 6px rgba(18,32,25,.06), 0 12px 28px rgba(18,32,25,.10);
+  --shadow-sm:0 1px 3px rgba(18,32,25,.10);
+  --sheet-h:210px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1412; --card:#18201C; --ink:#E9EFEB; --muted:#93A29A;
+    --line:#26302B; --line-2:#1F2723;
+    --green:#6FCB49; --green-soft:#1D2E17;
+    --amber:#F0A020; --amber-ink:#1F1503;
+    --shadow:0 2px 6px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.55);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1412; --card:#18201C; --ink:#E9EFEB; --muted:#93A29A;
+  --line:#26302B; --line-2:#1F2723;
+  --green:#6FCB49; --green-soft:#1D2E17;
+  --shadow:0 2px 6px rgba(0,0,0,.5), 0 12px 28px rgba(0,0,0,.55);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.5);
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--ink);
+     font-family:"Golos Text",system-ui,-apple-system,sans-serif; font-size:15px;
+     overflow:hidden; -webkit-font-smoothing:antialiased}
+
+#map{position:fixed; inset:0; z-index:1; background:var(--bg)}
+.leaflet-container{font-family:inherit; background:var(--bg)}
+.leaflet-control-attribution{font-size:9px; opacity:.65}
+
+/* ── Верхняя панель: поиск + фильтры ── */
+.top{position:fixed; z-index:20; top:0; left:0; right:0; padding:12px 12px 0;
+     display:flex; flex-direction:column; gap:9px; pointer-events:none}
+.search{pointer-events:auto; display:flex; align-items:center; gap:9px;
+        background:var(--card); border:1px solid var(--line); border-radius:14px;
+        padding:11px 14px; box-shadow:var(--shadow)}
+.search svg{flex:none; opacity:.5}
+.search input{border:0; outline:0; background:none; color:var(--ink);
+              font:inherit; font-size:15px; width:100%}
+.search input::placeholder{color:var(--muted)}
+.search button{border:0; background:none; color:var(--muted); font-size:17px;
+               cursor:pointer; padding:0 2px; display:none}
+.search.has button{display:block}
+
+.chips{pointer-events:auto; display:flex; gap:7px; overflow-x:auto;
+       padding-bottom:2px; scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none; font:inherit; font-size:13.5px; font-weight:500; cursor:pointer;
+      padding:8px 14px; border-radius:999px; border:1px solid var(--line);
+      background:var(--card); color:var(--ink); box-shadow:var(--shadow-sm)}
+.chip[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:var(--bg)}
+
+/* ── Метка на карте: фото + балл ── */
+.mk{position:relative; width:46px; height:46px}
+.mk .ph{width:46px; height:46px; border-radius:14px; overflow:hidden;
+        border:2.5px solid var(--card); background:var(--line);
+        box-shadow:var(--shadow-sm); display:block}
+.mk .ph img{width:100%; height:100%; object-fit:cover; display:block}
+.mk .ph.no{display:grid; place-items:center; font-size:11px; font-weight:700;
+           color:var(--muted); background:var(--line-2)}
+.mk .sc{position:absolute; top:-6px; right:-6px; background:var(--amber);
+        color:var(--amber-ink); font-size:10.5px; font-weight:700; line-height:1;
+        padding:3px 5px; border-radius:7px; border:2px solid var(--card)}
+.mk .tip{position:absolute; top:50px; left:50%; transform:translateX(-50%);
+         background:var(--card); border:1px solid var(--line); border-radius:9px;
+         padding:3px 8px; font-size:12px; font-weight:600; white-space:nowrap;
+         box-shadow:var(--shadow-sm); font-variant-numeric:tabular-nums}
+.leaflet-marker-icon.on{z-index:9999 !important}
+.leaflet-marker-icon.on .ph{border-color:var(--green); transform:scale(1.1)}
+
+/* ── Нижняя карточка ── */
+.sheet{position:fixed; z-index:30; left:0; right:0; bottom:0;
+       padding:0 12px calc(12px + env(safe-area-inset-bottom));
+       transform:translateY(115%); transition:transform .26s cubic-bezier(.32,.72,0,1)}
+.sheet.open{transform:none}
+.sheet-in{background:var(--card); border:1px solid var(--line); border-radius:20px;
+          box-shadow:var(--shadow); overflow:hidden; max-height:82vh; overflow-y:auto}
+.hero{position:relative; height:186px; background:var(--line-2)}
+.hero img{width:100%; height:100%; object-fit:cover; display:block}
+.hero .none{display:grid; place-items:center; height:100%; color:var(--muted); font-size:13px}
+.hero .x{position:absolute; top:10px; right:10px; width:32px; height:32px; border-radius:50%;
+         border:0; background:rgba(255,255,255,.92); color:#16211C; font-size:15px;
+         cursor:pointer; box-shadow:var(--shadow-sm)}
+.hero .badge{position:absolute; top:10px; left:10px; background:var(--amber);
+             color:var(--amber-ink); font-size:12px; font-weight:700;
+             padding:5px 9px; border-radius:9px}
+.hero .dots{position:absolute; bottom:8px; left:0; right:0; display:flex;
+            justify-content:center; gap:5px}
+.hero .dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.55)}
+.hero .dots i.on{background:#fff; width:14px; border-radius:3px}
+
+.body{padding:14px 15px 16px}
+.price{font-size:27px; font-weight:700; letter-spacing:-.02em; line-height:1.1;
+       font-variant-numeric:tabular-nums}
+.addr{color:var(--muted); font-size:13.5px; margin-top:3px; display:flex; gap:5px}
+.specs{display:flex; gap:8px; margin:13px 0; flex-wrap:wrap}
+.spec{background:var(--line-2); border-radius:11px; padding:8px 11px; flex:1; min-width:78px}
+.spec b{display:block; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums}
+.spec span{color:var(--muted); font-size:11px}
+.drop{background:var(--green-soft); color:var(--green); border-radius:11px;
+      padding:9px 12px; font-size:13.5px; font-weight:600; margin-bottom:12px;
+      font-variant-numeric:tabular-nums}
+.acts{display:flex; gap:9px}
+.btn{flex:1; display:block; text-align:center; text-decoration:none; font:inherit;
+     font-size:15px; font-weight:600; padding:14px; border-radius:14px;
+     border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer}
+.btn.go{background:var(--green); border-color:var(--green); color:#fff}
+:root[data-theme="dark"] .btn.go{color:#0E1412}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn.go{color:#0E1412} }
+
+/* ── Список карточек внизу ── */
+.strip{position:fixed; z-index:15; left:0; right:0;
+       bottom:calc(10px + env(safe-area-inset-bottom));
+       display:flex; gap:10px; overflow-x:auto; padding:4px 12px 6px;
+       scroll-snap-type:x mandatory; scrollbar-width:none;
+       transition:transform .26s cubic-bezier(.32,.72,0,1)}
+.strip::-webkit-scrollbar{display:none}
+.strip.hide{transform:translateY(150%)}
+.mini{scroll-snap-align:center; flex:0 0 258px; display:flex; gap:10px; text-align:left;
+      background:var(--card); border:1px solid var(--line); border-radius:16px;
+      padding:9px; box-shadow:var(--shadow); font:inherit; color:inherit; cursor:pointer}
+.mini .th{width:62px; height:62px; border-radius:12px; object-fit:cover; flex:none;
+          background:var(--line-2)}
+.mini .th.no{display:grid; place-items:center; color:var(--muted); font-size:10px}
+.mini .info{min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px}
+.mini .p{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+.mini .m{color:var(--muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis;
+         white-space:nowrap}
+.mini .r{display:inline-flex; align-items:center; gap:4px; font-size:11.5px;
+         font-weight:700; color:var(--amber)}
+.mini.on{border-color:var(--green); box-shadow:0 0 0 2px var(--green-soft), var(--shadow)}
+
+.counter{position:fixed; z-index:14; right:12px; top:118px; background:var(--card);
+         border:1px solid var(--line); border-radius:11px; padding:7px 11px;
+         font-size:12.5px; font-weight:600; box-shadow:var(--shadow-sm)}
+.counter b{font-variant-numeric:tabular-nums}
+.updated{position:fixed; z-index:14; right:12px; top:154px; font-size:11px;
+         color:var(--muted); background:var(--card); border:1px solid var(--line);
+         border-radius:9px; padding:4px 9px; box-shadow:var(--shadow-sm)}
+.updated:empty{display:none}
+.empty{position:fixed; inset:0; display:none; place-items:center; z-index:12;
+       pointer-events:none}
+.empty div{background:var(--card); border:1px solid var(--line); border-radius:14px;
+           padding:14px 18px; box-shadow:var(--shadow); color:var(--muted); font-size:14px}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="top">
+  <label class="search" id="search">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Метро, адрес…" autocomplete="off">
+    <button id="qx" type="button" aria-label="Очистить">✕</button>
+  </label>
+  <div class="chips" id="chips" role="group" aria-label="Фильтр"></div>
+</div>
+
+<div class="counter" id="counter"></div>
+<div class="updated" id="updated"></div>
+<div class="empty" id="empty"><div>Ничего не нашлось</div></div>
+
+<div class="strip" id="strip"></div>
+
+<div class="sheet" id="sheet" role="dialog" aria-label="Квартира">
+  <div class="sheet-in" id="sheet-in"></div>
+</div>
+
+<script>
+let FLATS = [];      // приходят из data.json — страница и данные живут отдельно
+
+/* ─────────────────────────────────────────────────────────────
+   MAP_PROVIDER — какую карту показывать.
+
+   "osm"  — OpenStreetMap. Работает сразу, ключ не нужен.
+   Яндекс.Карты и 2ГИС подключаются их собственными SDK и требуют
+   ключ (у Яндекса бесплатный тариф с лимитами, у 2ГИС демо-ключ
+   на месяц). Их плитки нельзя подставлять в Leaflet напрямую —
+   нужен их скрипт. Как будет ключ, скажи: перепишу инициализацию
+   карты на нужный SDK, остальной интерфейс не изменится.
+   ───────────────────────────────────────────────────────────── */
+const MAP_PROVIDER = "osm";
+
+const KINDS={studio:"Студия",flat_1:"1-комн",flat_2:"2-комн",flat_3:"3-комн",flat_4:"4+ комн",room:"Комната"};
+const nf = new Intl.NumberFormat("ru-RU");
+const money = n => n ? nf.format(n) + " ₽" : "цена не указана";
+const $ = s => document.querySelector(s);
+
+let filter="all", query="", current=null, markers={}, gallery=[], gIdx=0;
+
+const map = L.map("map", { zoomControl:false, attributionControl:true })
+             .setView([55.7300, 37.6100], 10);
+L.control.zoom({ position:"bottomleft" }).addTo(map);
+/* Светлая подложка CARTO Positron: спокойный серо-белый вид, на котором
+   видно метки, а не рекламу магазинов. Обычный OSM для этого слишком пёстрый. */
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png", {
+  maxZoom:19, subdomains:"abcd",
+  attribution:'© OpenStreetMap, © CARTO'
+}).addTo(map);
+
+const layer = L.layerGroup().addTo(map);
+
+function match(f){
+  if (filter !== "all" && f.kind !== filter) return false;
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (f.metro||"").toLowerCase().includes(q) ||
+         (f.address||"").toLowerCase().includes(q) ||
+         (KINDS[f.kind]||"").toLowerCase().includes(q);
+}
+const shown = () => FLATS.filter(match);
+
+function icon(f, on){
+  const ph = (f.photos||[])[0];
+  const img = ph
+    ? `<span class="ph"><img src="${ph}" alt="" loading="lazy"
+         onerror="var p=this.parentNode;p.classList.add('no');p.textContent='фото'"></span>`
+    : `<span class="ph no">фото</span>`;
+  return L.divIcon({
+    className: on ? "on" : "",
+    html: `<div class="mk">${img}<span class="sc">${f.rating||"—"}</span>
+             ${on ? `<span class="tip">${money(f.last_price)}</span>` : ""}</div>`,
+    iconSize:[46,46], iconAnchor:[23,23]
+  });
+}
+
+function draw(){
+  layer.clearLayers(); markers = {};
+  const f = shown();
+  f.forEach(x => {
+    const m = L.marker([x.lat, x.lon], { icon: icon(x, current === x.uid), riseOnHover:true })
+               .on("click", () => open(x.uid, false));
+    m.addTo(layer); markers[x.uid] = m;
+  });
+  $("#counter").innerHTML = `<b>${f.length}</b> ${plural(f.length,"квартира","квартиры","квартир")}`;
+  $("#empty").style.display = f.length ? "none" : "grid";
+  strip(f);
+}
+
+function plural(n,a,b,c){ n=Math.abs(n)%100; if(n>=11&&n<=14)return c; n%=10;
+  return n===1?a:(n>=2&&n<=4?b:c); }
+
+function strip(f){
+  const el = $("#strip");
+  el.innerHTML = f.slice().sort((a,b)=>(b.rating||0)-(a.rating||0)).map(x=>{
+    const ph=(x.photos||[])[0];
+    return `<button class="mini${current===x.uid?" on":""}" data-uid="${x.uid}">
+      ${ph?`<img class="th" src="${ph}" alt="" loading="lazy" onerror="this.className=&quot;th no&quot;;this.removeAttribute(&quot;src&quot;)">`
+          :`<span class="th no">нет фото</span>`}
+      <span class="info">
+        <span class="p">${money(x.last_price)}</span>
+        <span class="m">${KINDS[x.kind]||"Квартира"}${x.area?` · ${String(x.area).replace(".",",")} м²`:""}</span>
+        <span class="m">${x.metro||"—"}${x.minutes!=null?` · ${x.minutes} мин`:""}</span>
+      </span></button>`;
+  }).join("");
+  el.querySelectorAll(".mini").forEach(b => b.onclick = () => open(b.dataset.uid, true));
+}
+
+function open(uid, fly){
+  const x = FLATS.find(f => f.uid === uid); if (!x) return;
+  current = uid; gallery = x.photos || []; gIdx = 0;
+  if (fly) map.flyTo([x.lat, x.lon], Math.max(map.getZoom(), 13), { duration:.5 });
+
+  const drop = x.first_price && x.last_price && x.last_price < x.first_price
+             ? x.first_price - x.last_price : 0;
+  const chan = x.channel_msg_id ? `https://t.me/nedvezhonok/${x.channel_msg_id}` : null;
+  const cian = x.source === "cian" ? (x.uid.split(":")[1]||"") : "";
+
+  $("#sheet-in").innerHTML = `
+    <div class="hero">
+      ${gallery.length
+        ? `<img id="hero-img" src="${gallery[0]}" alt="" onerror="this.style.display=&quot;none&quot;">
+           ${gallery.length>1?`<div class="dots" id="dots">${gallery.map((_,i)=>
+              `<i class="${i?'':'on'}"></i>`).join("")}</div>`:""}`
+        : `<div class="none">фотографий нет</div>`}
+      <span class="badge">${x.rating||"—"} / 100</span>
+      <button class="x" id="close" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="body">
+      <div class="price">${money(x.last_price)}</div>
+      <div class="addr">📍 ${x.address || x.metro || "адрес не указан"}</div>
+      <div class="specs">
+        <div class="spec"><b>${x.area?String(x.area).replace(".",","):"—"}</b><span>м²</span></div>
+        <div class="spec"><b>${x.floor?x.floor+(x.floors_total?"/"+x.floors_total:""):"—"}</b><span>этаж</span></div>
+        <div class="spec"><b>${x.minutes!=null?x.minutes:"—"}</b><span>мин до ${x.metro||"метро"}</span></div>
+      </div>
+      ${drop?`<div class="drop">Подешевела: ${nf.format(x.first_price)} → ${money(x.last_price)} (−${nf.format(drop)})</div>`:""}
+      <div class="acts">
+        ${cian?`<a class="btn go" target="_blank" rel="noopener"
+             href="https://www.cian.ru/rent/flat/${cian}/">Смотреть объявление</a>`:""}
+        ${chan?`<a class="btn" target="_blank" rel="noopener" href="${chan}">В канале</a>`:""}
+      </div>
+    </div>`;
+
+  $("#sheet").classList.add("open");
+  $("#strip").classList.add("hide");
+  $("#close").onclick = close;
+  if (gallery.length > 1){
+    const img = $("#hero-img");
+    img.onclick = () => {
+      gIdx = (gIdx + 1) % gallery.length;
+      img.src = gallery[gIdx];
+      $("#dots").querySelectorAll("i").forEach((d,i)=>d.classList.toggle("on", i===gIdx));
+    };
+    img.style.cursor = "pointer";
+  }
+  draw();
+}
+
+function close(){
+  current = null;
+  $("#sheet").classList.remove("open");
+  $("#strip").classList.remove("hide");
+  draw();
+}
+map.on("click", close);
+document.addEventListener("keydown", e => e.key === "Escape" && close());
+
+function chips(){
+  const c = {}; FLATS.forEach(f => c[f.kind] = (c[f.kind]||0)+1);
+  const opts = [["all","Все",FLATS.length],
+    ...Object.keys(KINDS).filter(k=>c[k]).map(k=>[k,KINDS[k],c[k]])];
+  $("#chips").innerHTML = opts.map(([k,l,n]) =>
+    `<button class="chip" data-k="${k}" aria-pressed="${k===filter}">${l} · ${n}</button>`).join("");
+  $("#chips").querySelectorAll(".chip").forEach(b => b.onclick = () => {
+    filter = b.dataset.k; close(); chips(); draw();
+  });
+}
+
+$("#q").oninput = e => {
+  query = e.target.value.trim();
+  $("#search").classList.toggle("has", !!query);
+  draw();
+};
+$("#qx").onclick = () => { $("#q").value=""; query=""; $("#search").classList.remove("has"); draw(); };
+
+function boot(){
+  chips(); draw();
+  const pts = FLATS.map(f => [f.lat, f.lon]);
+  if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(.12));
+  else map.setView([55.7522, 37.6156], 10);
+}
+
+/* Данные тянем из соседнего файла. ?v= с меткой времени — чтобы браузер
+   не показывал вчерашний список из своего кэша. */
+fetch("data.json?v=" + Date.now())
+  .then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(d => {
+    FLATS = d.flats || [];
+    if (d.updated) $("#updated").textContent = "обновлено " + d.updated;
+    boot();
+  })
+  .catch(e => {
+    $("#empty").style.display = "grid";
+    $("#empty").firstElementChild.textContent =
+      "Не удалось загрузить квартиры (" + e + ")";
+    boot();
+  });
+</script>
+</body>
+</html>
