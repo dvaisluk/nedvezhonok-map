@@ -2,6 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Недвежонок — карта квартир</title>
 
@@ -437,8 +439,13 @@ function markerEl(f, on){
 function drawMarkers(){
   markers.forEach(m => m.remove());
   markers = [];
-  shown().forEach(f => {
+  // Метки часто налезают друг на друга: город большой, а на весь экран
+  // помещается и Зеленоград, и Бунинская аллея. Кладём лучшие поверх
+  // остальных, чтобы наложение выглядело осмысленно, а не случайно.
+  const list = shown().slice().sort((a,b) => (a.rating||0) - (b.rating||0));
+  list.forEach((f, i) => {
     const el = markerEl(f, current === f.uid);
+    el.style.zIndex = String(current === f.uid ? 999 : i + 1);
     const go = e => { e.stopPropagation(); openFlat(f.uid, false); };
     el.addEventListener("click", go);
     el.addEventListener("keydown", e => (e.key === "Enter" || e.key === " ") && go(e));
